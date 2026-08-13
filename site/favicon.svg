@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="XJ monogram">
+  <rect width="64" height="64" fill="#17232b"/>
+  <path d="m14 15 9 15-10 19h8l6-12 7 12h8L31 30l9-15h-8l-5 9-5-9h-8Z" fill="#fff"/>
+  <path d="M44 15h7v23c0 8-4 12-12 12v-7c3 0 5-2 5-6V15Z" fill="#c9d7d5"/>
+</svg>
