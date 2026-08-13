@@ -1,4 +1,4 @@
-name: Deploy reviewed website output
+name: Audit and deploy reviewed output
 
 on:
   pull_request:
@@ -10,6 +10,10 @@ on:
     paths:
       - "site/**"
       - "PROVENANCE.json"
+      - "scripts/**"
+      - ".github/workflows/pages.yml"
+      - "README.md"
+      - "security/**"
 
 permissions: {}
 
@@ -31,7 +35,7 @@ jobs:
           persist-credentials: false
       - name: Test the public-output audit
         run: ./scripts/test-audit-public-output.sh
-      - name: Audit public files and provenance
+      - name: Audit public files and minimal provenance
         run: ./scripts/audit-public-output.sh
       - name: Package site directory
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
