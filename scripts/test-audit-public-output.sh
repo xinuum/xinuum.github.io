@@ -65,8 +65,6 @@ second_digest=$(python3 "$hash_tool" tree-hash "$valid/site")
 printf '%s\n' \
   '{' \
   '  "schema_version": 1,' \
-  '  "source_repository": "xinuum/personal-website",' \
-  '  "source_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",' \
   '  "hugo_version": "0.165.0",' \
   "  \"site_tree_sha256\": \"$first_digest\"" \
   '}' >"$valid/PROVENANCE.json"
@@ -98,18 +96,56 @@ copy_valid_fixture "$manifest_case"
 printf '%s\n' \
   '{' \
   '  "schema_version": 1,' \
-  '  "source_repository": "xinuum/personal-website",' \
-  '  "source_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",' \
   '  "hugo_version": "0.165.0",' \
   "  \"site_tree_sha256\": \"$first_digest\"," \
   '  "unexpected_secret": "must never be accepted"' \
   '}' >"$manifest_case/PROVENANCE.json"
 expect_failure "manifest" "unsupported fields: unexpected_secret" "$manifest_case"
 
+retired_manifest_case="$temporary_root/retired-manifest-case"
+copy_valid_fixture "$retired_manifest_case"
+repository_key=$(printf '%s_%s' source repository)
+revision_key=$(printf '%s_%s' source commit)
+printf '%s\n' \
+  '{' \
+  '  "schema_version": 1,' \
+  '  "hugo_version": "0.165.0",' \
+  "  \"site_tree_sha256\": \"$first_digest\"," \
+  "  \"$repository_key\": \"redacted\"," \
+  "  \"$revision_key\": \"0000000000000000000000000000000000000000\"" \
+  '}' >"$retired_manifest_case/PROVENANCE.json"
+expect_failure "retired-manifest" "unsupported fields" "$retired_manifest_case"
+
 credential_case="$temporary_root/credential-case"
 copy_valid_fixture "$credential_case"
-printf '%s\n' 'window.value = "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";' >"$credential_case/site/assets/value.js"
+token_prefix=$(printf '%s%s' 'gh' 'p_')
+token_body=$(printf '%032d' 0 | tr '0' 'A')
+printf 'window.value = "%s%s";\n' "$token_prefix" "$token_body" >"$credential_case/site/assets/value.js"
 expect_failure "credential" "credential-shaped value" "$credential_case"
+
+private_key_case="$temporary_root/private-key-case"
+copy_valid_fixture "$private_key_case"
+private_key_boundary=$(printf '%s%s%s' '-----BEGIN ' 'OPENSSH ' 'PRIVATE KEY-----')
+printf '%s\n' "$private_key_boundary" >"$private_key_case/site/assets/value.txt"
+expect_failure "private-key" "private-key boundary" "$private_key_case"
+
+posix_path_case="$temporary_root/posix-path-case"
+copy_valid_fixture "$posix_path_case"
+posix_path=$(printf '/%s/%s/%s/%s' Users account workspace build.log)
+printf '<!-- %s -->\n' "$posix_path" >>"$posix_path_case/site/index.html"
+expect_failure "posix-path" "local filesystem path" "$posix_path_case"
+
+automation_path_case="$temporary_root/automation-path-case"
+copy_valid_fixture "$automation_path_case"
+automation_path=$(printf '/%s/%s/%s/%s' home agent work output)
+printf '<!-- %s -->\n' "$automation_path" >>"$automation_path_case/site/index.html"
+expect_failure "automation-path" "local filesystem path" "$automation_path_case"
+
+windows_path_case="$temporary_root/windows-path-case"
+copy_valid_fixture "$windows_path_case"
+windows_path=$(printf '%s:\\%s\\%s\\%s' C Users account output)
+printf '<!-- %s -->\n' "$windows_path" >>"$windows_path_case/site/index.html"
+expect_failure "windows-path" "local filesystem path" "$windows_path_case"
 
 metadata_case="$temporary_root/metadata-case"
 copy_valid_fixture "$metadata_case"

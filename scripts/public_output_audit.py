@@ -15,11 +15,8 @@ from collections.abc import Iterable
 
 
 SCHEMA_VERSION = 1
-SOURCE_REPOSITORY = "xinuum/personal-website"
 REQUIRED_MANIFEST_KEYS = {
     "schema_version",
-    "source_repository",
-    "source_commit",
     "hugo_version",
     "site_tree_sha256",
 }
@@ -149,19 +146,6 @@ FORBIDDEN_LITERAL_TEXT = (
     "ACADEMIC DEMO",
     "Lorem ipsum",
     "Hugo Blox",
-    "The Wave",
-    "Office C200",
-    "Whitham Road",
-    "facebook.com/josephjia27",
-    "uploads/resume.pdf",
-    "personal-content-workspace",
-    "github.com/xinuum/personal-website",
-    "/Users/joycej/",
-    "/home/runner/work/",
-    "-----BEGIN OPENSSH PRIVATE KEY-----",
-    "-----BEGIN RSA PRIVATE KEY-----",
-    "-----BEGIN EC PRIVATE KEY-----",
-    "-----BEGIN PRIVATE KEY-----",
 )
 FORBIDDEN_TOKEN_PATTERNS = (
     re.compile(rb"github_pat_[A-Za-z0-9_]{20,}"),
@@ -170,6 +154,18 @@ FORBIDDEN_TOKEN_PATTERNS = (
     re.compile(rb"\bAIza[0-9A-Za-z_-]{35}\b"),
     re.compile(rb"\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b"),
     re.compile(rb"\bsk_live_[A-Za-z0-9]{20,}\b"),
+)
+FORBIDDEN_LOCAL_PATH_PATTERNS = (
+    re.compile(
+        rb"(?<![A-Za-z0-9:])/(?:Users|home|private|var|tmp|Volumes|opt|srv)/"
+        rb"[A-Za-z0-9._-]+(?:/[^\x00\r\n\t <>\"']*)?"
+    ),
+    re.compile(rb"\b[A-Za-z]:\\Users\\[A-Za-z0-9._-]+(?:\\[^\x00\r\n\t <>\"']*)?", re.I),
+    re.compile(rb"\bfile://(?:localhost)?/[^\x00\r\n\t <>\"']+", re.I),
+)
+PRIVATE_KEY_BOUNDARIES = tuple(
+    b"-----BEGIN " + key_type + b"PRIVATE KEY-----"
+    for key_type in (b"", b"OPENSSH ", b"RSA ", b"EC ", b"DSA ")
 )
 FORBIDDEN_BINARY_MARKERS = (
     b"Exif\x00\x00",
@@ -468,6 +464,10 @@ def scan_file(path: pathlib.Path, site: pathlib.Path) -> None:
         fail(f"forbidden private/template text in {relative}: {hits}")
     if any(pattern.search(data) for pattern in FORBIDDEN_TOKEN_PATTERNS):
         fail(f"credential-shaped value in output file: {relative}")
+    if any(pattern.search(data) for pattern in FORBIDDEN_LOCAL_PATH_PATTERNS):
+        fail(f"local filesystem path in output file: {relative}")
+    if any(boundary in data for boundary in PRIVATE_KEY_BOUNDARIES):
+        fail(f"private-key boundary in output file: {relative}")
     if any(marker.lower() in lowered for marker in FORBIDDEN_BINARY_MARKERS):
         fail(f"embedded image metadata in output file: {relative}")
 
@@ -525,12 +525,6 @@ def validate_manifest(manifest: dict[str, object]) -> None:
     schema_version = manifest["schema_version"]
     if type(schema_version) is not int or schema_version != SCHEMA_VERSION:
         fail(f"schema_version must be the integer {SCHEMA_VERSION}")
-    if manifest["source_repository"] != SOURCE_REPOSITORY:
-        fail(f"source_repository must be {SOURCE_REPOSITORY}")
-    if not isinstance(manifest["source_commit"], str) or not re.fullmatch(
-        r"[0-9a-f]{40}", manifest["source_commit"]
-    ):
-        fail("source_commit must be a lowercase, full Git SHA")
     if not isinstance(manifest["hugo_version"], str) or not re.fullmatch(
         r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)",
         manifest["hugo_version"],
